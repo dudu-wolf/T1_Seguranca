@@ -1,56 +1,57 @@
 package T1_Seguranca;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
-import java.io.FileReader;
-import java.io.FileWriter;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.Scanner;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
+import java.text.Normalizer;
 
 public class Main {
     public static final String KEY = "a";
 
-    public static char removeSpecialChar(char text) {
-        text = text.replaceAll("[^a-zA-Z0-9]", "");
-        return text.charAt(0);
+    public static String higienizar(char c) {
+        String s = Normalizer.normalize(String.valueOf(c), Normalizer.Form.NFD);
+        s = s.replaceAll("\\p{InCombiningDiacriticalMarks}", "");
+        s = s.toLowerCase();
+        s = s.replaceAll("[^a-z]", "");
+        return s;
     }
 
     public static char criptografar(char textoChar, char chaveChar) {
-        textoChar = Character.toLowerCase(textoChar);
-        chaveChar = Character.toLowerCase(chaveChar);
-
-        int posTexto = textoChar - 'a' + 1;
-        int posChave = chaveChar - 'a' + 1;
-
+        int posTexto = textoChar - 'a';
+        int posChave = chaveChar - 'a';
         int novaPos = (posTexto + posChave) % 26;
-
         return (char) ('a' + novaPos);
-}
+    }
 
     public static void main(String args[]) {
-        Scanner sc = new Scanner(System.in);
-
-        String arquivoEntrada = "entrada.txt";
+        String arquivoEntrada = "DomCasmurro.txt";
         String arquivoSaida = "saida.txt";
 
         try (
-            BufferedReader reader = new BufferedReader(new FileReader(arquivoEntrada));
-            BufferedWriter writer = new BufferedWriter(new FileWriter(arquivoSaida))
+            BufferedReader reader = new BufferedReader(
+                new InputStreamReader(new FileInputStream(arquivoEntrada), StandardCharsets.UTF_8));
+            BufferedWriter writer = new BufferedWriter(
+                new OutputStreamWriter(new FileOutputStream(arquivoSaida), StandardCharsets.UTF_8))
         ) {
             int character;
             int i = 0;
 
             while ((character = reader.read()) != -1) {
-                char caractere = Character.toLowerCase((char) character);
+                String limpo = higienizar((char) character);
 
-                char k = KEY.charAt(i % KEY.length());
-                char criptografado = criptografar(caractere, k);
-
-                writer.write(criptografado);
-                i++;    
+                for (int j = 0; j < limpo.length(); j++) {
+                    char ch = limpo.charAt(j);
+                    char posicaoChave = KEY.charAt(i % KEY.length());
+                    writer.write(criptografar(ch, posicaoChave));
+                    i++;    
+                }
             }
         } catch (IOException e) {
-            System.out.println("erro");
+            e.printStackTrace();
         }
-        sc.close();
     }
 }
