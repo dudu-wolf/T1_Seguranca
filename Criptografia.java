@@ -9,8 +9,8 @@ import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.text.Normalizer;
 
-public class Main {
-    public static final String KEY = "a";
+public class Criptografia {
+    public static final String KEY = "segredo";
 
     public static String higienizar(char c) {
         String s = Normalizer.normalize(String.valueOf(c), Normalizer.Form.NFD);
