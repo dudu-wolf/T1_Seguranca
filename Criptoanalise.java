@@ -1,5 +1,3 @@
-package T1_Seguranca;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -7,23 +5,17 @@ import java.nio.file.Paths;
 
 public class Criptoanalise {
 
-    // IC esperado para o português. Se o IC médio de um candidato K
-    // estiver perto disso, é forte indício de que K é o tamanho da chave.
-    private static final double IC_PORTUGUES = 0.072;
+    private static final double IC_PORTUGUES = 0.075;
 
-    // -----------------------------------------------------------------
-    // 1) IC de um único trecho de texto
-    // -----------------------------------------------------------------
-    // Recebe um conjunto de caracteres (uma "coluna") e devolve seu IC.
-    // Pré-condição: o texto já está higienizado (só a-z).
+    // Cálculo de IC
     public static double indiceDeCoincidencia(String coluna) {
-        int[] freq = new int[26];          // contador para cada letra a-z
+        int[] freq = new int[26];         
         for (int i = 0; i < coluna.length(); i++) {
             freq[coluna.charAt(i) - 'a']++;
         }
 
         int n = coluna.length();
-        if (n < 2) return 0.0;             // evita divisão por zero
+        if (n < 2) return 0.0;            
 
         // Fórmula: IC = Σ [ n_c · (n_c - 1) ] / [ N · (N - 1) ]
         long soma = 0;
@@ -33,18 +25,12 @@ public class Criptoanalise {
         return (double) soma / ((long) n * (n - 1));
     }
 
-    // -----------------------------------------------------------------
-    // 2) IC médio para um candidato de tamanho de chave K
-    // -----------------------------------------------------------------
-    // Particiona o texto em K colunas pela regra "posição mod K = i"
-    // e devolve a média dos K ICs.
+    // Método que separa o texto cifrado em K colunas, calcula o IC de cada uma e devolve a média.
     public static double icMedioParaK(String textoCifrado, int k) {
         StringBuilder[] colunas = new StringBuilder[k];
         for (int i = 0; i < k; i++) colunas[i] = new StringBuilder();
 
-        // Distribui cada caractere na sua coluna correspondente.
-        // Posição 0 -> coluna 0, posição 1 -> coluna 1, ...,
-        // posição k -> coluna 0 (o ciclo recomeça).
+        // Separa os caracteres para as colunas seguindo o tamanho de K(chave)
         for (int pos = 0; pos < textoCifrado.length(); pos++) {
             colunas[pos % k].append(textoCifrado.charAt(pos));
         }
@@ -57,37 +43,29 @@ public class Criptoanalise {
         return soma / k;
     }
 
-    // -----------------------------------------------------------------
-    // 3) Varre K = 1..maxK e escolhe o mais provável
-    // -----------------------------------------------------------------
+
     public static int descobrirTamanhoChave(String textoCifrado, int maxK) {
+        // Inicia valores
         int melhorK = 1;
         double menorDistancia = Double.MAX_VALUE;
 
-        System.out.println("  K  |  IC médio  |  distância p/ 0,072");
-        System.out.println("-----+------------+--------------------");
-
         for (int k = 1; k <= maxK; k++) {
+            // Testa o texto para cada tamanho de chave candidato e calcula o IC médio
             double ic = icMedioParaK(textoCifrado, k);
+
+            // Compara o IC médio com o IC esperado
             double distancia = Math.abs(ic - IC_PORTUGUES);
 
-            System.out.printf(" %2d  |   %.4f   |       %.4f%n", k, ic, distancia);
-
-            // Critério: o K cujo IC fica mais próximo de 0,072.
-            // (Múltiplos do K real também dão IC bom, então mantemos
-            //  o menor empate, varrendo de 1 para cima.)
             if (distancia < menorDistancia) {
                 menorDistancia = distancia;
+                // Atribui o melhor K encontrado até agora
                 melhorK = k;
             }
         }
         return melhorK;
     }
 
-// Frequências relativas das letras no português europeu/brasileiro
-// (texto higienizado, sem acentos). Os valores somam ~1,0.
-// Fonte: contagens em corpora padrão; pequenas variações são normais
-// entre fontes diferentes, mas a forma geral do histograma é estável.
+// Frequências das letras no português
 private static final double[] FREQ_PT = {
     0.1463, // a
     0.0104, // b
@@ -117,98 +95,86 @@ private static final double[] FREQ_PT = {
     0.0047  // z
 };
 
-// -----------------------------------------------------------------
-// 1) Avalia um deslocamento candidato para uma coluna
-// -----------------------------------------------------------------
-// "Decifra" a coluna usando o deslocamento, conta as letras
-// resultantes, e mede o quão próximo o histograma fica do português
-// usando o teste qui-quadrado. Quanto MENOR o chi, melhor o encaixe.
 public static double avaliarDeslocamento(String coluna, int deslocamento) {
     int n = coluna.length();
+
+    // Tabela de fraquências para a coluna do K decifrada com o deslocamento testado
     int[] freq = new int[26];
 
     for (int i = 0; i < n; i++) {
-        // Inverso da cifra de César: subtrai o deslocamento.
-        // O "+ 26" antes do "% 26" garante resultado não-negativo.
+        // Testa cada letra com o deslocamento tentando "decifrar"
         int letra = (coluna.charAt(i) - 'a' - deslocamento + 26) % 26;
+
+        // Salva frequência da letra decifrada
         freq[letra]++;
     }
 
-    // Chi-quadrado: Σ (observado - esperado)² / esperado
-    // - "esperado" é a frequência esperada multiplicada pelo tamanho
-    //   da amostra (transforma proporção em contagem)
-    // - se a coluna decifrada tiver perfil de português, observado ≈
-    //   esperado e o chi tende a zero
-    double chi = 0.0;
+    double qui = 0.0;
     for (int c = 0; c < 26; c++) {
+        // Salva esperado como a frequência esperada X a quantidade de letras daquela coluna
         double esperado = FREQ_PT[c] * n;
         if (esperado > 0) {
-            double diff = freq[c] - esperado;
-            chi += (diff * diff) / esperado;
+
+            // Fórmula do qui-quadrado
+            int observado = freq[c];
+            double diff = observado - esperado;
+            qui += (diff * diff) / esperado;
         }
     }
-    return chi;
+    return qui;
 }
 
-// -----------------------------------------------------------------
-// 2) Descobre o melhor deslocamento de UMA coluna
-// -----------------------------------------------------------------
-// Testa todos os 26 deslocamentos possíveis e devolve o que produziu
-// o menor chi-quadrado. Esse valor (0..25) é a letra da chave naquela
-// posição, codificada como 0='a', 1='b', ..., 25='z'.
-public static int descobrirDeslocamento(String coluna) {
+public static char descobrirLetra(String coluna) {
     int melhor = 0;
-    double menorChi = Double.MAX_VALUE;
+    double menorQui = Double.MAX_VALUE;
     for (int desloc = 0; desloc < 26; desloc++) {
-        double chi = avaliarDeslocamento(coluna, desloc);
-        if (chi < menorChi) {
-            menorChi = chi;
+        // Calcula o qui-quadrado para o deslocamento testado e compara com o melhor encontrado até agora
+        // Representa a proximidade da letra testada para decifrar com o português
+        double qui = avaliarDeslocamento(coluna, desloc);
+        if (qui < menorQui) {
+            // Quanto menor o qui, mais próximo do português
+            menorQui = qui;
             melhor = desloc;
         }
     }
-    return melhor;
+    return (char) ('a' + melhor);
 }
 
-// -----------------------------------------------------------------
-// 3) Descobre a chave inteira
-// -----------------------------------------------------------------
-// Particiona o texto em K colunas (igual à Etapa 1) e roda a análise
-// de frequência em cada uma. Cada coluna contribui com uma letra da
-// chave.
 public static String descobrirChave(String textoCifrado, int k) {
     StringBuilder[] colunas = new StringBuilder[k];
     for (int i = 0; i < k; i++) colunas[i] = new StringBuilder();
+
+    // Separa os caracteres para as colunas seguindo o tamanho de K(chave)
     for (int pos = 0; pos < textoCifrado.length(); pos++) {
         colunas[pos % k].append(textoCifrado.charAt(pos));
     }
 
     StringBuilder chave = new StringBuilder();
     for (int i = 0; i < k; i++) {
-        int desloc = descobrirDeslocamento(colunas[i].toString());
-        chave.append((char) ('a' + desloc));
+
+        //Descobre a letra para cada coluna de K 
+        char letra = descobrirLetra(colunas[i].toString());
+        chave.append(letra);
     }
     return chave.toString();
 }
 
-// -----------------------------------------------------------------
-// 4) Decifra o texto inteiro com a chave descoberta
-// -----------------------------------------------------------------
-// Vigenère reverso: cada caractere é deslocado de volta pela letra
-// correspondente da chave.
 public static String decifrar(String textoCifrado, String chave) {
     StringBuilder out = new StringBuilder(textoCifrado.length());
     for (int i = 0; i < textoCifrado.length(); i++) {
+        // Letra do texto cifrado
         int c = textoCifrado.charAt(i) - 'a';
+
+        // Letra da chave correspondente
         int k = chave.charAt(i % chave.length()) - 'a';
+
+        // Fórmula de decifração: P = (C - K + 26) mod 26
         int original = (c - k + 26) % 26;
         out.append((char) ('a' + original));
     }
     return out.toString();
 }
 
-// -----------------------------------------------------------------
-// 5) Pipeline completo
-// -----------------------------------------------------------------
 public static void main(String[] args) throws IOException {
     String cifrado = new String(
         Files.readAllBytes(Paths.get("saida.txt")),
@@ -225,7 +191,6 @@ public static void main(String[] args) throws IOException {
     Files.write(Paths.get("decifrado.txt"),
                 original.getBytes(StandardCharsets.UTF_8));
 
-    System.out.println("\nPrimeiros 200 caracteres do texto decifrado:");
-    System.out.println(original.substring(0, Math.min(200, original.length())));
+
 }
 }

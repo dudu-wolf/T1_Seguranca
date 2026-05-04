@@ -1,4 +1,3 @@
-package T1_Seguranca;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.FileInputStream;
@@ -28,7 +27,7 @@ public class Criptografia {
     }
 
     public static void main(String args[]) {
-        String arquivoEntrada = "DomCasmurro.txt";
+        String arquivoEntrada = "entrada.txt";
         String arquivoSaida = "saida.txt";
 
         try (
@@ -44,7 +43,11 @@ public class Criptografia {
                 String limpo = higienizar((char) character);
 
                 for (int j = 0; j < limpo.length(); j++) {
+
+                    // Caractere a ser criptografado
                     char ch = limpo.charAt(j);
+
+                    // Caractere da chave correspondente
                     char posicaoChave = KEY.charAt(i % KEY.length());
                     writer.write(criptografar(ch, posicaoChave));
                     i++;    
